@@ -1,0 +1,782 @@
+(* Content-type: application/vnd.wolfram.mathematica *)
+
+(*** Wolfram Notebook File ***)
+(* http://www.wolfram.com/nb *)
+
+(* CreatedBy='Mathematica 10.0' *)
+
+(*CacheID: 234*)
+(* Internal cache information:
+NotebookFileLineBreakTest
+NotebookFileLineBreakTest
+NotebookDataPosition[       158,          7]
+NotebookDataLength[     33747,        773]
+NotebookOptionsPosition[     33186,        751]
+NotebookOutlinePosition[     33539,        767]
+CellTagsIndexPosition[     33496,        764]
+WindowFrame->Normal*)
+
+(* Beginning of Notebook Content *)
+Notebook[{
+Cell["Compute information content", "Text",
+ CellChangeTimes->{{3.635526545605695*^9, 3.6355265476997623`*^9}}],
+
+Cell[BoxData[
+ RowBox[{
+  RowBox[{"IC", "[", "probs_", "]"}], ":=", 
+  RowBox[{"(", 
+   RowBox[{
+    RowBox[{"Log", "[", 
+     RowBox[{"2", ",", 
+      RowBox[{"Length", "[", "probs", "]"}]}], "]"}], "-", 
+    RowBox[{"Quiet", "[", 
+     RowBox[{
+      RowBox[{"-", 
+       RowBox[{
+        UnderoverscriptBox["\[Sum]", 
+         RowBox[{"i", "=", "1"}], 
+         RowBox[{"Length", "[", "probs", "]"}]], 
+        RowBox[{"(", 
+         RowBox[{
+          RowBox[{"(", 
+           RowBox[{
+            RowBox[{
+            "probs", "\[LeftDoubleBracket]", "i", "\[RightDoubleBracket]"}], 
+            RowBox[{"Log", "[", 
+             RowBox[{"2", ",", 
+              RowBox[{
+              "probs", "\[LeftDoubleBracket]", "i", 
+               "\[RightDoubleBracket]"}]}], "]"}]}], ")"}], "/.", 
+          RowBox[{"(", 
+           RowBox[{
+            RowBox[{"0", 
+             RowBox[{"(", 
+              RowBox[{"-", "\[Infinity]"}], ")"}]}], "\[Rule]", "0"}], 
+           ")"}]}], ")"}]}]}], ",", 
+      RowBox[{"{", 
+       RowBox[{"\[Infinity]", "::", "\"\<indet\>\""}], "}"}]}], "]"}]}], 
+   ")"}]}]], "Input",
+ CellChangeTimes->{{3.449489724510263*^9, 3.4494897971462393`*^9}, {
+  3.449489861325725*^9, 3.4494898622514467`*^9}, {3.449489998286686*^9, 
+  3.4494899984087477`*^9}, {3.5439483266715508`*^9, 3.5439483302089467`*^9}}],
+
+Cell["\<\
+Returns whether the pair of DNA chains given form a duplex or not.\
+\>", "Text",
+ CellChangeTimes->{{3.410122681983*^9, 3.41012269054*^9}}],
+
+Cell[BoxData[{
+ RowBox[{
+  RowBox[{"DNADuplexQ", "[", 
+   RowBox[{
+    RowBox[{"chainsDNA", ":", 
+     RowBox[{"{", 
+      RowBox[{"_DNA", ".."}], "}"}]}], ",", 
+    RowBox[{"opts", ":", 
+     RowBox[{"OptionsPattern", "[", "ExtractDNADuplex", "]"}]}]}], "]"}], ":=", 
+  RowBox[{
+   RowBox[{"ExtractDNADuplex", "[", 
+    RowBox[{"chainsDNA", ",", "opts"}], "]"}], "=!=", 
+   RowBox[{"{", "}"}]}]}], "\[IndentingNewLine]", 
+ RowBox[{
+  RowBox[{
+   RowBox[{"DNADuplexQ", "[", "___", "]"}], "=", "False"}], ";"}]}], "Input",
+ CellChangeTimes->{{3.4101220928780003`*^9, 3.410122353174*^9}, {
+   3.410122594078*^9, 3.410122620877*^9}, {3.4101229868570004`*^9, 
+   3.4101229869379997`*^9}, {3.410127345979*^9, 3.410127355898*^9}, {
+   3.410127876417*^9, 3.410127947766*^9}, {3.4101279780290003`*^9, 
+   3.410128003491*^9}, {3.410128036907*^9, 3.410128150788*^9}, {
+   3.4101282276140003`*^9, 3.410128258091*^9}, {3.410129889716*^9, 
+   3.410129897243*^9}, {3.410130057322*^9, 3.410130058072*^9}, {
+   3.410357605253936*^9, 3.410357608733205*^9}, {3.41035768066903*^9, 
+   3.410357696147532*^9}, 3.410357730807423*^9, 3.410358019308489*^9, 
+   3.410358408897812*^9, {3.4103616165294237`*^9, 3.4103616301867533`*^9}, {
+   3.410361721356699*^9, 3.4103617248359685`*^9}, {3.410370632419167*^9, 
+   3.4103706368944664`*^9}, {3.410370750439934*^9, 3.4103707760105624`*^9}}],
+
+Cell["\<\
+Returns the region of DNA within the given two strands that forms a duplex. \
+The form it is returned in is in what I'm calling the canonical duplex form. \
+Basically, the DNA is cropped so that both strands are of the same length, \
+and are properly lined up. Additionally, it is returned such that both \
+strands run from 5'\[Rule]3' , even if this were not the form in which they \
+are supplied (well it does assume that at least the first strand given runs \
+from 5'\[Rule]3'). The order in which the first strand is given is \
+maintained, and the second may or may not be depending on the directionality \
+issue as just mentioned. There are lots of options, but the defaults should \
+work reasonably well.
+
+The MaximumOverhang option refers to how much overhang is allowed to be \
+assumed to have existed in the dsDNA passed to it. Note that right now this \
+is given as an explicit number.
+
+The minimum region of overlap (specified by MinOverlap) must at least be more \
+than the MaxOutliers by 1, otherwise you're throwing away everything. So \
+currently the MinOverlap option insures that at least that many bases are \
+being aligned, and does so by counting the number thrown out as outliers. \
+I.e. the outliers do count as actual aligned bases, they just don't factor \
+into the computation.\
+\>", "Text",
+ CellChangeTimes->{{3.410122681983*^9, 3.41012269054*^9}, {
+   3.410370814334282*^9, 3.410370916985914*^9}, {3.4103712566555805`*^9, 
+   3.4103712990815763`*^9}, {3.4103745442166476`*^9, 
+   3.4103745590301523`*^9}, {3.41037632166343*^9, 3.410376347272143*^9}, {
+   3.4103851645251856`*^9, 3.410385178642446*^9}, {3.4103863178927717`*^9, 
+   3.4103863410573044`*^9}, {3.429630074491*^9, 3.429630149983*^9}, 
+   3.4330958892316*^9, {3.4330971503086*^9, 3.4330973178646*^9}, 
+   3.4519440837142963`*^9, {3.6355265707365403`*^9, 3.6355265933973055`*^9}, {
+   3.635526947859991*^9, 3.635526948110009*^9}, {3.6355270002619286`*^9, 
+   3.635527049804394*^9}}],
+
+Cell[BoxData[{
+ RowBox[{
+  RowBox[{
+   RowBox[{"ExtractDNADuplex", "::", "\"\<ssDNA\>\""}], "=", 
+   "\"\<Only a single strand of DNA was passed.\>\""}], 
+  ";"}], "\[IndentingNewLine]", 
+ RowBox[{
+  RowBox[{
+   RowBox[{
+    RowBox[{"ExtractDNADuplex", "::", "\"\<InvalidOptions\>\""}], "=", 
+    "\"\<The minimum overlap requested must exceed the maximum number of \
+outliers.\>\""}], ";"}], "\[IndentingNewLine]"}], "\[IndentingNewLine]", 
+ RowBox[{
+  RowBox[{
+   RowBox[{"Options", "[", "ExtractDNADuplex", "]"}], "=", 
+   RowBox[{"{", 
+    RowBox[{
+     RowBox[{"MinDistance", "\[Rule]", "600"}], ",", 
+     RowBox[{"MaxDistance", "\[Rule]", "1300"}], ",", 
+     RowBox[{"MaximumOverhang", "\[Rule]", "4"}], ",", 
+     RowBox[{"MaxOutliers", "\[Rule]", "2"}], ",", 
+     RowBox[{"MinOverlap", "\[Rule]", "5"}]}], "}"}]}], 
+  ";"}], "\[IndentingNewLine]", 
+ RowBox[{
+  RowBox[{
+   RowBox[{"ExtractDNADuplex", "[", 
+    RowBox[{
+     RowBox[{"chainsDNA", ":", 
+      RowBox[{"{", 
+       RowBox[{"_DNA", ".."}], "}"}]}], ",", 
+     RowBox[{"OptionsPattern", "[", "]"}]}], "]"}], ":=", 
+   RowBox[{"Module", "[", 
+    RowBox[{
+     RowBox[{"{", 
+      RowBox[{
+      "vertices", ",", "chains", ",", "conv", ",", "picks", ",", "picked", 
+       ",", "pos", ",", "\[IndentingNewLine]", 
+       RowBox[{"flagNotReversed", "=", 
+        RowBox[{"OrderedQ", "[", 
+         RowBox[{"Length", "/@", 
+          RowBox[{"chainsDNA", "\[LeftDoubleBracket]", 
+           RowBox[{"All", ",", "1"}], "\[RightDoubleBracket]"}]}], "]"}]}]}], 
+      "}"}], ",", "\[IndentingNewLine]", "\[IndentingNewLine]", 
+     RowBox[{"(*", " ", 
+      RowBox[{
+      "Insure", " ", "that", " ", "the", " ", "minimum", " ", "overlap", " ", 
+       "allowed", " ", "is", " ", "longer", " ", "than", " ", "the", " ", 
+       "number", " ", "of", " ", "outliers", " ", "to", " ", "be", " ", 
+       "thrown", " ", 
+       RowBox[{"out", "."}]}], " ", "*)"}], "\[IndentingNewLine]", 
+     RowBox[{
+      RowBox[{"If", "[", 
+       RowBox[{
+        RowBox[{
+         RowBox[{"OptionValue", "[", "MinOverlap", "]"}], "\[LessEqual]", 
+         RowBox[{"OptionValue", "[", "MaxOutliers", "]"}]}], ",", 
+        RowBox[{
+         RowBox[{"Message", "[", 
+          RowBox[{"ExtractDNADuplex", "::", "\"\<InvalidOptions\>\""}], "]"}],
+          ";", 
+         RowBox[{"Return", "[", 
+          RowBox[{"{", "}"}], "]"}]}]}], "]"}], ";", "\[IndentingNewLine]", 
+      "\[IndentingNewLine]", 
+      RowBox[{"chains", "=", 
+       RowBox[{"If", "[", 
+        RowBox[{"flagNotReversed", ",", "chainsDNA", ",", 
+         RowBox[{"Reverse", "[", "chainsDNA", "]"}]}], "]"}]}], ";", 
+      "\[IndentingNewLine]", 
+      RowBox[{"vertices", "=", 
+       RowBox[{
+        RowBox[{
+         RowBox[{"ChainVertices", "[", 
+          RowBox[{"#", ",", "All", ",", 
+           RowBox[{"{", 
+            RowBox[{"{", 
+             RowBox[{"\"\<C\>\"", ",", "\"\<1'\>\""}], "}"}], "}"}]}], "]"}], 
+         "&"}], "/@", "chains"}]}], ";", "\[IndentingNewLine]", 
+      "\[IndentingNewLine]", 
+      RowBox[{"conv", "=", 
+       RowBox[{"Join", "[", "\[IndentingNewLine]", 
+        RowBox[{
+         RowBox[{"ListConvolve", "[", 
+          RowBox[{
+           RowBox[{"Sequence", "@@", "vertices"}], ",", 
+           RowBox[{"{", 
+            RowBox[{
+             RowBox[{"-", "1"}], ",", "1"}], "}"}], ",", 
+           RowBox[{"{", "}"}], ",", "EuclideanDistance", ",", "List", ",", 
+           "1"}], "]"}], ",", "\[IndentingNewLine]", 
+         RowBox[{"Table", "[", 
+          RowBox[{
+           RowBox[{"Last", "[", "\[IndentingNewLine]", 
+            RowBox[{"ListConvolve", "[", 
+             RowBox[{
+              RowBox[{"Sequence", "@@", 
+               RowBox[{"(", 
+                RowBox[{
+                 RowBox[{
+                  RowBox[{"{", 
+                   RowBox[{
+                    RowBox[{"Drop", "[", 
+                    RowBox[{
+                    RowBox[{
+                    "#", "\[LeftDoubleBracket]", "1", 
+                    "\[RightDoubleBracket]"}], ",", "i"}], "]"}], ",", 
+                    RowBox[{"Drop", "[", 
+                    RowBox[{
+                    RowBox[{
+                    "#", "\[LeftDoubleBracket]", "2", 
+                    "\[RightDoubleBracket]"}], ",", "i"}], "]"}]}], "}"}], 
+                  "&"}], "[", "vertices", "]"}], ")"}]}], ",", 
+              RowBox[{"{", 
+               RowBox[{
+                RowBox[{"-", "1"}], ",", "1"}], "}"}], ",", 
+              RowBox[{"{", "}"}], ",", "EuclideanDistance", ",", "List", ",", 
+              "1"}], "]"}], "]"}], ",", "\[IndentingNewLine]", 
+           RowBox[{"{", 
+            RowBox[{"i", ",", 
+             RowBox[{"OptionValue", "[", "MaximumOverhang", "]"}]}], "}"}]}], 
+          "]"}], ",", "\[IndentingNewLine]", 
+         RowBox[{"Table", "[", 
+          RowBox[{
+           RowBox[{"First", "[", "\[IndentingNewLine]", 
+            RowBox[{"ListConvolve", "[", 
+             RowBox[{
+              RowBox[{"Sequence", "@@", 
+               RowBox[{"(", 
+                RowBox[{
+                 RowBox[{
+                  RowBox[{"{", 
+                   RowBox[{
+                    RowBox[{"Drop", "[", 
+                    RowBox[{
+                    RowBox[{
+                    "#", "\[LeftDoubleBracket]", "1", 
+                    "\[RightDoubleBracket]"}], ",", 
+                    RowBox[{"-", "i"}]}], "]"}], ",", 
+                    RowBox[{"Drop", "[", 
+                    RowBox[{
+                    RowBox[{
+                    "#", "\[LeftDoubleBracket]", "2", 
+                    "\[RightDoubleBracket]"}], ",", 
+                    RowBox[{"-", "i"}]}], "]"}]}], "}"}], "&"}], "[", 
+                 "vertices", "]"}], ")"}]}], ",", 
+              RowBox[{"{", 
+               RowBox[{
+                RowBox[{"-", "1"}], ",", "1"}], "}"}], ",", 
+              RowBox[{"{", "}"}], ",", "EuclideanDistance", ",", "List", ",", 
+              "1"}], "]"}], "]"}], ",", "\[IndentingNewLine]", 
+           RowBox[{"{", 
+            RowBox[{"i", ",", 
+             RowBox[{"OptionValue", "[", "MaximumOverhang", "]"}]}], "}"}]}], 
+          "]"}], ",", "\[IndentingNewLine]", 
+         RowBox[{"ListCorrelate", "[", 
+          RowBox[{
+           RowBox[{"Sequence", "@@", "vertices"}], ",", 
+           RowBox[{"{", 
+            RowBox[{"1", ",", 
+             RowBox[{"-", "1"}]}], "}"}], ",", 
+           RowBox[{"{", "}"}], ",", "EuclideanDistance", ",", "List", ",", 
+           "1"}], "]"}], ",", "\[IndentingNewLine]", 
+         RowBox[{"Table", "[", 
+          RowBox[{
+           RowBox[{"First", "[", "\[IndentingNewLine]", 
+            RowBox[{"ListCorrelate", "[", 
+             RowBox[{
+              RowBox[{"Sequence", "@@", 
+               RowBox[{"(", 
+                RowBox[{
+                 RowBox[{
+                  RowBox[{"{", 
+                   RowBox[{
+                    RowBox[{"Drop", "[", 
+                    RowBox[{
+                    RowBox[{
+                    "#", "\[LeftDoubleBracket]", "1", 
+                    "\[RightDoubleBracket]"}], ",", "i"}], "]"}], ",", 
+                    RowBox[{"Drop", "[", 
+                    RowBox[{
+                    RowBox[{
+                    "#", "\[LeftDoubleBracket]", "2", 
+                    "\[RightDoubleBracket]"}], ",", 
+                    RowBox[{"-", "i"}]}], "]"}]}], "}"}], "&"}], "[", 
+                 "vertices", "]"}], ")"}]}], ",", 
+              RowBox[{"{", 
+               RowBox[{"1", ",", 
+                RowBox[{"-", "1"}]}], "}"}], ",", 
+              RowBox[{"{", "}"}], ",", "EuclideanDistance", ",", "List", ",", 
+              "1"}], "]"}], "]"}], ",", "\[IndentingNewLine]", 
+           RowBox[{"{", 
+            RowBox[{"i", ",", 
+             RowBox[{"OptionValue", "[", "MaximumOverhang", "]"}]}], "}"}]}], 
+          "]"}], ",", "\[IndentingNewLine]", 
+         RowBox[{"Table", "[", 
+          RowBox[{
+           RowBox[{"Last", "[", "\[IndentingNewLine]", 
+            RowBox[{"ListCorrelate", "[", 
+             RowBox[{
+              RowBox[{"Sequence", "@@", 
+               RowBox[{"(", 
+                RowBox[{
+                 RowBox[{
+                  RowBox[{"{", 
+                   RowBox[{
+                    RowBox[{"Drop", "[", 
+                    RowBox[{
+                    RowBox[{
+                    "#", "\[LeftDoubleBracket]", "1", 
+                    "\[RightDoubleBracket]"}], ",", 
+                    RowBox[{"-", "i"}]}], "]"}], ",", 
+                    RowBox[{"Drop", "[", 
+                    RowBox[{
+                    RowBox[{
+                    "#", "\[LeftDoubleBracket]", "2", 
+                    "\[RightDoubleBracket]"}], ",", "i"}], "]"}]}], "}"}], 
+                  "&"}], "[", "vertices", "]"}], ")"}]}], ",", 
+              RowBox[{"{", 
+               RowBox[{"1", ",", 
+                RowBox[{"-", "1"}]}], "}"}], ",", 
+              RowBox[{"{", "}"}], ",", "EuclideanDistance", ",", "List", ",", 
+              "1"}], "]"}], "]"}], ",", "\[IndentingNewLine]", 
+           RowBox[{"{", 
+            RowBox[{"i", ",", 
+             RowBox[{"OptionValue", "[", "MaximumOverhang", "]"}]}], "}"}]}], 
+          "]"}]}], "]"}]}], ";", "\[IndentingNewLine]", 
+      RowBox[{"conv", "=", 
+       RowBox[{"Replace", "[", 
+        RowBox[{"conv", ",", 
+         RowBox[{
+          RowBox[{"l_", "/;", 
+           RowBox[{
+            RowBox[{"Length", "[", "l", "]"}], "<", 
+            RowBox[{"OptionValue", "[", "MinOverlap", "]"}]}]}], "\[Rule]", 
+          RowBox[{"ConstantArray", "[", 
+           RowBox[{"\[Infinity]", ",", 
+            RowBox[{"OptionValue", "[", "MinOverlap", "]"}]}], "]"}]}], ",", 
+         RowBox[{"{", "1", "}"}]}], "]"}]}], ";", "\[IndentingNewLine]", 
+      RowBox[{"conv", "=", 
+       RowBox[{
+        RowBox[{
+         RowBox[{"Delete", "[", 
+          RowBox[{"#", ",", 
+           RowBox[{"List", "/@", 
+            RowBox[{
+             RowBox[{"Ordering", "[", "#", "]"}], "\[LeftDoubleBracket]", 
+             RowBox[{
+              RowBox[{"-", 
+               RowBox[{"OptionValue", "[", "MaxOutliers", "]"}]}], ";;"}], 
+             "\[RightDoubleBracket]"}]}]}], "]"}], "&"}], "/@", "conv"}]}], 
+      ";", "\[IndentingNewLine]", 
+      RowBox[{"picks", "=", 
+       RowBox[{
+        RowBox[{
+         RowBox[{
+          RowBox[{"Count", "[", 
+           RowBox[{"#", ",", 
+            RowBox[{"d_", "/;", 
+             RowBox[{"(", 
+              RowBox[{
+               RowBox[{"d", ">", 
+                RowBox[{"OptionValue", "[", "MaxDistance", "]"}]}], "\[Or]", 
+               RowBox[{"d", "<", 
+                RowBox[{"OptionValue", "[", "MinDistance", "]"}]}]}], 
+              ")"}]}]}], "]"}], "===", "0"}], "&"}], "/@", "conv"}]}], ";", 
+      "\[IndentingNewLine]", 
+      RowBox[{"picked", "=", 
+       RowBox[{"Pick", "[", 
+        RowBox[{"conv", ",", "picks"}], "]"}]}], ";", "\[IndentingNewLine]", 
+      "\[IndentingNewLine]", 
+      RowBox[{"If", "[", 
+       RowBox[{
+        RowBox[{"\[Not]", 
+         RowBox[{"MatchQ", "[", 
+          RowBox[{"picked", ",", 
+           RowBox[{"{", 
+            RowBox[{
+             RowBox[{"{", "}"}], "..."}], "}"}]}], "]"}]}], ",", 
+        "\[IndentingNewLine]", 
+        RowBox[{"(*", " ", 
+         RowBox[{
+          RowBox[{"Duplex", " ", "found"}], ",", " ", 
+          RowBox[{
+          "return", " ", "chainsDNA", " ", "in", " ", "canonical", " ", 
+           "duplex", " ", "form"}]}], " ", "*)"}], "\[IndentingNewLine]", 
+        RowBox[{
+         RowBox[{"pos", "=", 
+          RowBox[{"MinPosition", "[", 
+           RowBox[{"Variance", "/@", "picked"}], "]"}]}], ";", 
+         "\[IndentingNewLine]", 
+         RowBox[{"pos", "=", 
+          RowBox[{
+           RowBox[{"Position", "[", 
+            RowBox[{"picks", ",", "True"}], "]"}], "\[LeftDoubleBracket]", 
+           RowBox[{"pos", ",", "1"}], "\[RightDoubleBracket]"}]}], ";", 
+         "\[IndentingNewLine]", 
+         RowBox[{"chains", "=", 
+          RowBox[{"chains", "\[LeftDoubleBracket]", 
+           RowBox[{"All", ",", "1"}], "\[RightDoubleBracket]"}]}], ";", 
+         "\[IndentingNewLine]", 
+         RowBox[{"conv", "=", 
+          RowBox[{"Join", "[", "\[IndentingNewLine]", 
+           RowBox[{
+            RowBox[{"ListCorrelate", "[", 
+             RowBox[{
+              RowBox[{"Sequence", "@@", "chains"}], ",", 
+              RowBox[{"{", 
+               RowBox[{"1", ",", 
+                RowBox[{"-", "1"}]}], "}"}], ",", 
+              RowBox[{"{", "}"}], ",", "List", ",", "List", ",", "1"}], "]"}],
+             ",", "\[IndentingNewLine]", 
+            RowBox[{"Table", "[", 
+             RowBox[{
+              RowBox[{"Last", "[", "\[IndentingNewLine]", 
+               RowBox[{"ListCorrelate", "[", 
+                RowBox[{
+                 RowBox[{"Sequence", "@@", 
+                  RowBox[{"(", 
+                   RowBox[{
+                    RowBox[{
+                    RowBox[{"{", 
+                    RowBox[{
+                    RowBox[{"Drop", "[", 
+                    RowBox[{
+                    RowBox[{
+                    "#", "\[LeftDoubleBracket]", "1", 
+                    "\[RightDoubleBracket]"}], ",", "i"}], "]"}], ",", 
+                    RowBox[{"Drop", "[", 
+                    RowBox[{
+                    RowBox[{
+                    "#", "\[LeftDoubleBracket]", "2", 
+                    "\[RightDoubleBracket]"}], ",", "i"}], "]"}]}], "}"}], 
+                    "&"}], "[", "chains", "]"}], ")"}]}], ",", 
+                 RowBox[{"{", 
+                  RowBox[{"1", ",", 
+                   RowBox[{"-", "1"}]}], "}"}], ",", 
+                 RowBox[{"{", "}"}], ",", "List", ",", "List", ",", "1"}], 
+                "]"}], "]"}], ",", "\[IndentingNewLine]", 
+              RowBox[{"{", 
+               RowBox[{"i", ",", 
+                RowBox[{"OptionValue", "[", "MaximumOverhang", "]"}]}], 
+               "}"}]}], "]"}], ",", "\[IndentingNewLine]", 
+            RowBox[{"Table", "[", 
+             RowBox[{
+              RowBox[{"First", "[", "\[IndentingNewLine]", 
+               RowBox[{"ListCorrelate", "[", 
+                RowBox[{
+                 RowBox[{"Sequence", "@@", 
+                  RowBox[{"(", 
+                   RowBox[{
+                    RowBox[{
+                    RowBox[{"{", 
+                    RowBox[{
+                    RowBox[{"Drop", "[", 
+                    RowBox[{
+                    RowBox[{
+                    "#", "\[LeftDoubleBracket]", "1", 
+                    "\[RightDoubleBracket]"}], ",", 
+                    RowBox[{"-", "i"}]}], "]"}], ",", 
+                    RowBox[{"Drop", "[", 
+                    RowBox[{
+                    RowBox[{
+                    "#", "\[LeftDoubleBracket]", "2", 
+                    "\[RightDoubleBracket]"}], ",", 
+                    RowBox[{"-", "i"}]}], "]"}]}], "}"}], "&"}], "[", 
+                    "chains", "]"}], ")"}]}], ",", 
+                 RowBox[{"{", 
+                  RowBox[{"1", ",", 
+                   RowBox[{"-", "1"}]}], "}"}], ",", 
+                 RowBox[{"{", "}"}], ",", "List", ",", "List", ",", "1"}], 
+                "]"}], "]"}], ",", "\[IndentingNewLine]", 
+              RowBox[{"{", 
+               RowBox[{"i", ",", 
+                RowBox[{"OptionValue", "[", "MaximumOverhang", "]"}]}], 
+               "}"}]}], "]"}], ",", "\[IndentingNewLine]", 
+            RowBox[{"ListConvolve", "[", 
+             RowBox[{
+              RowBox[{"Sequence", "@@", "chains"}], ",", 
+              RowBox[{"{", 
+               RowBox[{
+                RowBox[{"-", "1"}], ",", "1"}], "}"}], ",", 
+              RowBox[{"{", "}"}], ",", "List", ",", "List", ",", "1"}], "]"}],
+             ",", "\[IndentingNewLine]", 
+            RowBox[{"Table", "[", 
+             RowBox[{
+              RowBox[{"First", "[", "\[IndentingNewLine]", 
+               RowBox[{"ListConvolve", "[", 
+                RowBox[{
+                 RowBox[{"Sequence", "@@", 
+                  RowBox[{"(", 
+                   RowBox[{
+                    RowBox[{
+                    RowBox[{"{", 
+                    RowBox[{
+                    RowBox[{"Drop", "[", 
+                    RowBox[{
+                    RowBox[{
+                    "#", "\[LeftDoubleBracket]", "1", 
+                    "\[RightDoubleBracket]"}], ",", "i"}], "]"}], ",", 
+                    RowBox[{"Drop", "[", 
+                    RowBox[{
+                    RowBox[{
+                    "#", "\[LeftDoubleBracket]", "2", 
+                    "\[RightDoubleBracket]"}], ",", 
+                    RowBox[{"-", "i"}]}], "]"}]}], "}"}], "&"}], "[", 
+                    "chains", "]"}], ")"}]}], ",", 
+                 RowBox[{"{", 
+                  RowBox[{
+                   RowBox[{"-", "1"}], ",", "1"}], "}"}], ",", 
+                 RowBox[{"{", "}"}], ",", "List", ",", "List", ",", "1"}], 
+                "]"}], "]"}], ",", "\[IndentingNewLine]", 
+              RowBox[{"{", 
+               RowBox[{"i", ",", 
+                RowBox[{"OptionValue", "[", "MaximumOverhang", "]"}]}], 
+               "}"}]}], "]"}], ",", "\[IndentingNewLine]", 
+            RowBox[{"Table", "[", 
+             RowBox[{
+              RowBox[{"Last", "[", "\[IndentingNewLine]", 
+               RowBox[{"ListConvolve", "[", 
+                RowBox[{
+                 RowBox[{"Sequence", "@@", 
+                  RowBox[{"(", 
+                   RowBox[{
+                    RowBox[{
+                    RowBox[{"{", 
+                    RowBox[{
+                    RowBox[{"Drop", "[", 
+                    RowBox[{
+                    RowBox[{
+                    "#", "\[LeftDoubleBracket]", "1", 
+                    "\[RightDoubleBracket]"}], ",", 
+                    RowBox[{"-", "i"}]}], "]"}], ",", 
+                    RowBox[{"Drop", "[", 
+                    RowBox[{
+                    RowBox[{
+                    "#", "\[LeftDoubleBracket]", "2", 
+                    "\[RightDoubleBracket]"}], ",", "i"}], "]"}]}], "}"}], 
+                    "&"}], "[", "chains", "]"}], ")"}]}], ",", 
+                 RowBox[{"{", 
+                  RowBox[{
+                   RowBox[{"-", "1"}], ",", "1"}], "}"}], ",", 
+                 RowBox[{"{", "}"}], ",", "List", ",", "List", ",", "1"}], 
+                "]"}], "]"}], ",", "\[IndentingNewLine]", 
+              RowBox[{"{", 
+               RowBox[{"i", ",", 
+                RowBox[{"OptionValue", "[", "MaximumOverhang", "]"}]}], 
+               "}"}]}], "]"}]}], "]"}]}], ";", "\[IndentingNewLine]", 
+         RowBox[{"picked", "=", 
+          RowBox[{"Transpose", "[", 
+           RowBox[{
+           "conv", "\[LeftDoubleBracket]", "pos", "\[RightDoubleBracket]"}], 
+           "]"}]}], ";", "\[IndentingNewLine]", 
+         RowBox[{"If", "[", 
+          RowBox[{
+           RowBox[{"\[Not]", "flagNotReversed"}], ",", "\[IndentingNewLine]", 
+           RowBox[{"picked", "=", 
+            RowBox[{"Reverse", "[", "picked", "]"}]}], ",", 
+           "\[IndentingNewLine]", 
+           RowBox[{"If", "[", 
+            RowBox[{
+             RowBox[{"pos", ">", 
+              FractionBox[
+               RowBox[{"Length", "[", "conv", "]"}], "2"]}], ",", 
+             RowBox[{"picked", "=", 
+              RowBox[{"Reverse", "/@", "picked"}]}]}], "]"}]}], "]"}], ";", 
+         "\[IndentingNewLine]", 
+         RowBox[{"DNA", "/@", "picked"}]}], ",", "\[IndentingNewLine]", 
+        "\[IndentingNewLine]", 
+        RowBox[{"(*", " ", 
+         RowBox[{"No", " ", "duplex", " ", "found"}], " ", "*)"}], 
+        "\[IndentingNewLine]", 
+        RowBox[{"{", "}"}]}], "]"}]}]}], "]"}]}], 
+  "\[IndentingNewLine]"}], "\[IndentingNewLine]", 
+ RowBox[{
+  RowBox[{"ExtractDNADuplex", "[", 
+   RowBox[{"chainDNA_DNA", ",", "___"}], "]"}], ":=", 
+  RowBox[{"(", 
+   RowBox[{
+    RowBox[{"Message", "[", 
+     RowBox[{"ExtractDNADuplex", "::", "\"\<ssDNA\>\""}], "]"}], ";", 
+    "chainDNA"}], ")"}]}]}], "Input",
+ CellChangeTimes->{{3.4101220928780003`*^9, 3.410122353174*^9}, {
+   3.410122594078*^9, 3.410122620877*^9}, {3.4101229868570004`*^9, 
+   3.4101229869379997`*^9}, {3.410127345979*^9, 3.410127355898*^9}, {
+   3.410127876417*^9, 3.410127947766*^9}, {3.4101279780290003`*^9, 
+   3.410128003491*^9}, {3.410128036907*^9, 3.410128150788*^9}, {
+   3.4101282276140003`*^9, 3.410128258091*^9}, {3.410129889716*^9, 
+   3.410129897243*^9}, {3.410130057322*^9, 3.410130058072*^9}, {
+   3.410357605253936*^9, 3.410357608733205*^9}, {3.41035768066903*^9, 
+   3.410357696147532*^9}, 3.410357730807423*^9, 3.410358019308489*^9, 
+   3.410358408897812*^9, {3.4103615508744464`*^9, 3.410361555986424*^9}, 
+   3.410361611781681*^9, 3.4103617554004183`*^9, {3.41036178568559*^9, 
+   3.410361810108831*^9}, {3.410361880506669*^9, 3.410361899774967*^9}, {
+   3.4103625912238755`*^9, 3.410362614787797*^9}, {3.4103629613994017`*^9, 
+   3.4103629874768343`*^9}, {3.4103630627561955`*^9, 3.410363065722802*^9}, {
+   3.4103631262277193`*^9, 3.4103631471384897`*^9}, {3.410363216170204*^9, 
+   3.4103632997351685`*^9}, {3.4103633736698895`*^9, 3.410363399772711*^9}, {
+   3.41036360404284*^9, 3.4103636071861935`*^9}, {3.4103637344993343`*^9, 
+   3.410363736499206*^9}, {3.4103643145090857`*^9, 3.41036439321108*^9}, {
+   3.4103644645785823`*^9, 3.410364503567298*^9}, {3.41036454535271*^9, 
+   3.4103645954178643`*^9}, {3.4103649857932696`*^9, 3.410364987027566*^9}, {
+   3.4103650402448626`*^9, 3.4103650580747757`*^9}, {3.4103651351294146`*^9, 
+   3.4103652561060467`*^9}, {3.410365291966056*^9, 3.410365297028232*^9}, {
+   3.410365334633247*^9, 3.410365358229393*^9}, {3.410365389346542*^9, 
+   3.4103654062077675`*^9}, {3.410365536895692*^9, 3.41036555403815*^9}, {
+   3.4103672561713934`*^9, 3.410367258818685*^9}, {3.410367319698578*^9, 
+   3.410367322441566*^9}, {3.410370398963406*^9, 3.410370412585581*^9}, {
+   3.410370476218227*^9, 3.410370483552718*^9}, 3.4103718633647957`*^9, {
+   3.410371953304352*^9, 3.4103719627500362`*^9}, {3.4103726027100525`*^9, 
+   3.410372606152215*^9}, {3.4103726909700284`*^9, 3.4103726980174294`*^9}, {
+   3.4103729181342*^9, 3.4103730327606525`*^9}, {3.410373116543376*^9, 
+   3.410373116758206*^9}, {3.410374254191265*^9, 3.4103743183004427`*^9}, {
+   3.410374349811122*^9, 3.410374365273999*^9}, {3.4103744020939083`*^9, 
+   3.410374500258524*^9}, {3.410374612701522*^9, 3.410374614299076*^9}, {
+   3.41037466325395*^9, 3.410374664486294*^9}, {3.410374706625198*^9, 
+   3.4103747297985196`*^9}, {3.410375244493116*^9, 3.4103752449061756`*^9}, {
+   3.4103759632684*^9, 3.4103760313021317`*^9}, {3.41037904860413*^9, 
+   3.410379053157549*^9}, {3.410381883990036*^9, 3.4103818906526957`*^9}, {
+   3.410382167794137*^9, 3.4103821912369723`*^9}, {3.4103840119622355`*^9, 
+   3.4103840139367185`*^9}, {3.410386252680148*^9, 3.4103862608397827`*^9}, {
+   3.41065771351941*^9, 3.4106577773844633`*^9}, {3.42955178241*^9, 
+   3.429551795033*^9}, {3.429552338215*^9, 3.429552343634*^9}, 
+   3.429552806204*^9, {3.429552850977*^9, 3.42955293633*^9}, {
+   3.429552972573*^9, 3.429552978084*^9}, {3.4295530921219997`*^9, 
+   3.429553217755*^9}, {3.429553289182*^9, 3.429553293605*^9}, {
+   3.4295533602060003`*^9, 3.429553381842*^9}, {3.429553747342*^9, 
+   3.429554080719*^9}, {3.4295541151800003`*^9, 3.429554118263*^9}, {
+   3.429554261215*^9, 3.4295542674440002`*^9}, {3.429554438384*^9, 
+   3.429554518207*^9}, {3.429554781696*^9, 3.429554786186*^9}, {
+   3.429555070278*^9, 3.429555080678*^9}, {3.4295551434230003`*^9, 
+   3.4295551570699997`*^9}, {3.4295551978570004`*^9, 3.429555206343*^9}, {
+   3.4295563725109997`*^9, 3.429556394875*^9}, {3.4295569794449997`*^9, 
+   3.429556997111*^9}, {3.4295577260369997`*^9, 3.42955773742*^9}, {
+   3.4295579083*^9, 3.429557925829*^9}, {3.429558152274*^9, 
+   3.429558167275*^9}, {3.4295617082200003`*^9, 3.429561714057*^9}, {
+   3.429561829578*^9, 3.4295618571809998`*^9}, {3.429561933925*^9, 
+   3.429561958196*^9}, {3.429561996483*^9, 3.4295619990290003`*^9}, {
+   3.429563002955*^9, 3.4295630832539997`*^9}, {3.429563190927*^9, 
+   3.4295632881730003`*^9}, {3.429563766668*^9, 3.429563792472*^9}, {
+   3.429563858983*^9, 3.429563879417*^9}, {3.429565731361*^9, 
+   3.429565738608*^9}, {3.429571463606*^9, 3.4295714693389997`*^9}, {
+   3.4295717706210003`*^9, 3.429571788117*^9}, {3.429571837132*^9, 
+   3.429571844323*^9}, {3.429573096178*^9, 3.429573100512*^9}, {
+   3.4295732521619997`*^9, 3.4295732558190002`*^9}, {3.429574890102*^9, 
+   3.429574929159*^9}, {3.429575032814*^9, 3.429575036874*^9}, {
+   3.429575096368*^9, 3.429575202204*^9}, {3.4295753346*^9, 
+   3.429575370602*^9}, 3.429575437889*^9, {3.4295754978269997`*^9, 
+   3.429575502976*^9}, {3.42961863545*^9, 3.429618654678*^9}, {
+   3.429627746477*^9, 3.429627763834*^9}, {3.429627809664*^9, 
+   3.429627816333*^9}, {3.429627880098*^9, 3.429627900363*^9}, {
+   3.42962843705*^9, 3.4296284403570004`*^9}, {3.429629886426*^9, 
+   3.4296299075629997`*^9}, {3.4330970294326*^9, 3.4330970763066*^9}, {
+   3.4330971193006*^9, 3.4330971195656*^9}}],
+
+Cell["Helper functions.", "Text",
+ CellChangeTimes->{{3.63552705664997*^9, 3.635527064869954*^9}}],
+
+Cell[BoxData[{
+ RowBox[{
+  RowBox[{"MinPosition", "[", "list_", "]"}], ":=", 
+  RowBox[{"First", "[", 
+   RowBox[{"MinPosition", "[", 
+    RowBox[{"list", ",", "1"}], "]"}], "]"}]}], "\[IndentingNewLine]", 
+ RowBox[{
+  RowBox[{"MaxPosition", "[", "list_", "]"}], ":=", 
+  RowBox[{"First", "[", 
+   RowBox[{"MaxPosition", "[", 
+    RowBox[{"list", ",", "1"}], "]"}], "]"}]}], "\[IndentingNewLine]", 
+ RowBox[{
+  RowBox[{"MinPosition", "[", 
+   RowBox[{"list_", ",", "n_"}], "]"}], ":=", 
+  RowBox[{"Ordering", "[", 
+   RowBox[{"list", ",", "n"}], "]"}]}], "\[IndentingNewLine]", 
+ RowBox[{
+  RowBox[{"MaxPosition", "[", 
+   RowBox[{"list_", ",", "n_"}], "]"}], ":=", 
+  RowBox[{"Reverse", "[", 
+   RowBox[{"Ordering", "[", 
+    RowBox[{"list", ",", 
+     RowBox[{"-", "n"}]}], "]"}], "]"}]}]}], "Input",
+ CellChangeTimes->{{3.3924013959820004`*^9, 3.3924014318190002`*^9}, {
+  3.403621435109*^9, 3.403621437171*^9}, {3.4036214673599997`*^9, 
+  3.4036215586689997`*^9}}],
+
+Cell[BoxData[{
+ RowBox[{
+  RowBox[{"ChainVertices", "[", 
+   RowBox[{"chain_", ",", "pos_"}], "]"}], ":=", 
+  RowBox[{"chain", "\[LeftDoubleBracket]", 
+   RowBox[{"1", ",", "pos", ",", "2", ",", "All", ",", "3"}], 
+   "\[RightDoubleBracket]"}]}], "\[IndentingNewLine]", 
+ RowBox[{
+  RowBox[{"ChainVertices", "[", 
+   RowBox[{"chain_", ",", "pos_", ",", "vertexTypes_"}], "]"}], ":=", 
+  RowBox[{"With", "[", "\[IndentingNewLine]", 
+   RowBox[{
+    RowBox[{"{", 
+     RowBox[{"pattern", "=", 
+      RowBox[{
+       RowBox[{"Alternatives", "@@", 
+        RowBox[{"(", 
+         RowBox[{
+          RowBox[{
+           RowBox[{"{", 
+            RowBox[{
+             RowBox[{"Sequence", "@@", "#"}], ",", "coord_"}], "}"}], "&"}], "/@",
+           "vertexTypes"}], ")"}]}], "\[Rule]", "coord"}]}], "}"}], ",", 
+    "\[IndentingNewLine]", 
+    RowBox[{"Cases", "[", 
+     RowBox[{
+      RowBox[{"chain", "\[LeftDoubleBracket]", 
+       RowBox[{"1", ",", "pos"}], "\[RightDoubleBracket]"}], ",", "pattern", 
+      ",", "\[Infinity]"}], "]"}]}], "]"}]}]}], "Input",
+ CellChangeTimes->{{3.403548965885*^9, 3.403548985644*^9}, 
+   3.403549056987*^9, {3.4035807937530003`*^9, 3.403580796847*^9}, {
+   3.403580889804*^9, 3.4035808899300003`*^9}, {3.403581058678*^9, 
+   3.403581058939*^9}, {3.405183722174786*^9, 3.405183808983786*^9}, {
+   3.405184330432786*^9, 3.4051843469217863`*^9}, {3.405184580806786*^9, 
+   3.405184590125786*^9}, {3.405184789442786*^9, 3.405184792715786*^9}, {
+   3.405184869306786*^9, 3.405184907076786*^9}, {3.405188119059*^9, 
+   3.405188125052*^9}}]
+},
+WindowSize->{1424, 821},
+WindowMargins->{{0, Automatic}, {Automatic, 0}},
+FrontEndVersion->"10.0 for Mac OS X x86 (32-bit, 64-bit Kernel) (June 27, \
+2014)",
+StyleDefinitions->"Default.nb"
+]
+(* End of Notebook Content *)
+
+(* Internal cache information *)
+(*CellTagsOutline
+CellTagsIndex->{}
+*)
+(*CellTagsIndex
+CellTagsIndex->{}
+*)
+(*NotebookFileOutline
+Notebook[{
+Cell[558, 20, 111, 1, 30, "Text"],
+Cell[672, 23, 1338, 37, 59, "Input"],
+Cell[2013, 62, 149, 3, 30, "Text"],
+Cell[2165, 67, 1361, 27, 46, "Input"],
+Cell[3529, 96, 1980, 32, 182, "Text"],
+Cell[5512, 130, 25028, 551, 1165, "Input"],
+Cell[30543, 683, 98, 1, 30, "Text"],
+Cell[30644, 686, 968, 25, 92, "Input"],
+Cell[31615, 713, 1567, 36, 92, "Input"]
+}
+]
+*)
+
+(* End of internal cache information *)
